@@ -225,8 +225,6 @@ function App() {
 
   const nav = [{ id: 'dashboard' as Page, label: 'Visão geral', icon: LayoutDashboard }, { id: 'transactions' as Page, label: 'Lançamentos', icon: ArrowLeftRight }, { id: 'categories' as Page, label: 'Categorias', icon: Tags }, { id: 'settings' as Page, label: 'Configurações', icon: Settings }]
   const displayName = String(user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'Usuário')
-  const categoryFor = (id: string | null) => categories.find(c => c.id === id)
-  const changeMonth = (delta: number) => { const d = parseISO(month + '-01'); d.setMonth(d.getMonth() + delta); setMonth(format(d, 'yyyy-MM')) }
 
   return <div className="app-shell">
     <aside className="sidebar"><div className="sidebar-brand"><div className="brand-mark"><Wallet size={22} /></div><span>finflow<span className="brand-dot">.</span></span></div><div className="workspace-label">ESPAÇO PESSOAL</div><nav className="side-nav">{nav.map(item => <button key={item.id} className={page === item.id ? 'nav-item active' : 'nav-item'} onClick={() => setPage(item.id)}><item.icon size={18} strokeWidth={1.8} /><span>{item.label}</span>{page === item.id && <span className="nav-indicator" />}</button>)}</nav><div className="sidebar-bottom"><div className="help-card"><div className="help-icon"><Sparkles size={17} /></div><strong>Pequenos passos, grandes mudanças.</strong><span>Uma vida financeira mais tranquila começa com clareza.</span></div><button className="user-card" onClick={() => setPage('settings')}><div className="avatar">{displayName.charAt(0).toUpperCase()}</div><div className="user-meta"><strong>{displayName}</strong><span>{user.email}</span></div><MoreHorizontal size={18} /></button></div></aside>
