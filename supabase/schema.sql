@@ -32,6 +32,7 @@ create table if not exists public.transactions (
 create index if not exists categories_user_type_idx on public.categories(user_id, type);
 create index if not exists transactions_user_date_idx on public.transactions(user_id, date desc);
 create index if not exists transactions_user_category_idx on public.transactions(user_id, category_id);
+create index if not exists transactions_category_owner_idx on public.transactions(category_id, user_id);
 
 alter table public.categories enable row level security;
 alter table public.transactions enable row level security;
