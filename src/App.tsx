@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
   ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown,
   CircleHelp, CreditCard, Download, Eye, EyeOff, LayoutDashboard, LogOut,
@@ -221,7 +221,7 @@ function App() {
   </div>
 }
 
-function StatCard({ label, amount, icon, tone, helper }: { label: string; amount: number; icon: React.ReactNode; tone: 'green' | 'red' | 'purple'; helper: string }) {
+function StatCard({ label, amount, icon, tone, helper }: { label: string; amount: number; icon: ReactNode; tone: 'green' | 'red' | 'purple'; helper: string }) {
   return <div className="stat-card"><div className="stat-top"><span>{label}</span><span className={`stat-icon ${tone}`}>{icon}</span></div><div className="stat-value">{brl(amount)}</div><span className="stat-helper">{helper}</span></div>
 }
 function EmptyState({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
