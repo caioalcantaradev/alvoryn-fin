@@ -88,6 +88,19 @@ function App() {
 
   useEffect(() => { void refresh() }, [refresh])
 
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const typing = target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
+      if (event.key.toLowerCase() === 'n' && !event.ctrlKey && !event.metaKey && !event.altKey && !typing && user) {
+        event.preventDefault()
+        openNewTransaction()
+      }
+    }
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [user, categories])
+
   const monthTransactions = useMemo(() => transactions.filter(t => t.date.startsWith(month)), [transactions, month])
   const previousMonth = useMemo(() => { const d = parseISO(month + '-01'); d.setMonth(d.getMonth() - 1); return format(d, 'yyyy-MM') }, [month])
   const previousTransactions = useMemo(() => transactions.filter(t => t.date.startsWith(previousMonth)), [transactions, previousMonth])
@@ -221,6 +234,7 @@ function App() {
     {loading && <div className="loading-indicator"><span /> Atualizando seus dados…</div>}
     <footer className="app-footer"><span>FinFlow <span className="brand-dot">.</span> Seu financeiro em ordem.</span><span><CircleHelp size={14} /> Feito para trazer clareza ao seu dinheiro.</span></footer>
     </div></main>
+    <button className="floating-add" onClick={() => openNewTransaction()} aria-label="Novo lançamento" title="Novo lançamento (N)"><Plus size={22} /></button>
     <nav className="mobile-nav">{nav.map(item => <button key={item.id} className={page === item.id ? 'mobile-nav-item active' : 'mobile-nav-item'} onClick={() => setPage(item.id)}><item.icon size={19} /><span>{item.label}</span></button>)}</nav>
     {modalOpen && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setModalOpen(false) }}><section className="transaction-modal"><div className="modal-heading"><div><p className="eyebrow">{editing ? 'ATUALIZE OS DETALHES' : 'REGISTRE SUA MOVIMENTAÇÃO'}</p><h2>{editing ? 'Editar lançamento' : 'Novo lançamento'}</h2></div><button className="subtle-icon" onClick={() => setModalOpen(false)} aria-label="Fechar"><X size={20} /></button></div><form onSubmit={saveTransaction}><div className="type-toggle"><button type="button" className={form.type === 'expense' ? 'type-option expense selected' : 'type-option expense'} onClick={() => setForm(f => ({ ...f, type: 'expense', category_id: categories.find(c => c.type === 'expense')?.id ?? '' }))}><ArrowUpRight size={17} /> Gasto</button><button type="button" className={form.type === 'income' ? 'type-option income selected' : 'type-option income'} onClick={() => setForm(f => ({ ...f, type: 'income', category_id: categories.find(c => c.type === 'income')?.id ?? '' }))}><ArrowDownLeft size={17} /> Ganho</button></div><label>Descrição<input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Ex.: Compra no supermercado" maxLength={120} required autoFocus /></label><label>Valor (R$)<div className="amount-input"><span>R$</span><input inputMode="decimal" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: amountMask(e.target.value) }))} placeholder="0,00" required /></div></label><div className="modal-fields-row"><label>Categoria<select value={form.category_id} onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}><option value="">Sem categoria</option>{categories.filter(c => c.type === form.type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Data<input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required /></label></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setModalOpen(false)}>Cancelar</button><button className="primary-button" disabled={loading}>{loading ? 'Salvando…' : editing ? 'Salvar alterações' : 'Adicionar lançamento'} <Check size={17} /></button></div></form></section></div>}
     <Toaster theme={theme} richColors position="top-right" />
