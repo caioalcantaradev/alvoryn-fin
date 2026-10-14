@@ -1,5 +1,7 @@
 -- Sistema Financeiro — execute no SQL Editor do projeto Supabase.
 create extension if not exists pgcrypto;
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
 
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
@@ -8,18 +10,23 @@ create table if not exists public.categories (
   type text not null check (type in ('income', 'expense')),
   color text not null default '#8b78ff',
   created_at timestamptz not null default now(),
-  unique (user_id, name, type)
+  unique (user_id, name, type),
+  unique (id, user_id)
 );
 
 create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  category_id uuid references public.categories(id) on delete set null,
+  category_id uuid,
   type text not null check (type in ('income', 'expense')),
   description text not null check (char_length(trim(description)) between 1 and 120),
   amount numeric(12,2) not null check (amount > 0),
   date date not null default current_date,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint transactions_category_owner_fkey
+    foreign key (category_id, user_id)
+    references public.categories(id, user_id)
+    on delete set null (category_id)
 );
 
 create index if not exists categories_user_type_idx on public.categories(user_id, type);
@@ -31,19 +38,21 @@ alter table public.transactions enable row level security;
 
 drop policy if exists "Users manage their own categories" on public.categories;
 create policy "Users manage their own categories" on public.categories
-  for all to authenticated using ((select auth.uid()) = user_id)
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Users manage their own transactions" on public.transactions;
 create policy "Users manage their own transactions" on public.transactions
-  for all to authenticated using ((select auth.uid()) = user_id)
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
 grant select, insert, update, delete on public.categories to authenticated;
 grant select, insert, update, delete on public.transactions to authenticated;
 
--- Seed de categorias padrão para cada novo usuário.
-create or replace function public.seed_finance_categories()
+-- A função fica fora do schema exposto e não pode ser chamada pela Data API.
+create or replace function private.seed_finance_categories()
 returns trigger
 language plpgsql
 security definer
@@ -67,8 +76,9 @@ begin
   return new;
 end;
 $$;
+revoke all on function private.seed_finance_categories() from public, anon, authenticated;
 
 drop trigger if exists on_auth_user_created_seed_categories on auth.users;
 create trigger on_auth_user_created_seed_categories
 after insert on auth.users
-for each row execute function public.seed_finance_categories();
+for each row execute function private.seed_finance_categories();
