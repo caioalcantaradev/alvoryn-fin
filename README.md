@@ -1,4 +1,4 @@
-# FinFlow — Sistema Financeiro
+# AlvorynFIN — Sistema Financeiro
 
 Aplicação web de finanças pessoais feita com React, TypeScript, Vite, Tailwind CSS v4, Supabase, Recharts, date-fns, Lucide e Sonner.
 
