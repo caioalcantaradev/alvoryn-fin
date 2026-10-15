@@ -34,7 +34,7 @@ function App() {
   const [page, setPage] = useState<Page>('dashboard')
   const [user, setUser] = useState<{ id: string; email?: string; user_metadata?: Record<string, unknown> } | null>(null)
   const [authReady, setAuthReady] = useState(false)
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'recovery' | 'updatePassword'>('login')
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authName, setAuthName] = useState('')
@@ -65,8 +65,9 @@ function App() {
     supabase.auth.getSession().then(({ data }) => {
       if (active) { setUser(data.session?.user ?? null); setAuthReady(true) }
     }).catch(() => { if (active) setAuthReady(true) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
+      if (event === 'PASSWORD_RECOVERY') setAuthMode('updatePassword')
       setAuthReady(true)
     })
     return () => { active = false; listener.subscription.unsubscribe() }
@@ -131,15 +132,59 @@ function App() {
   async function submitAuth(e: FormEvent) {
     e.preventDefault()
     if (!supabase) return
+
+    if (authMode === 'recovery') {
+      setLoading(true)
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(authEmail.trim(), {
+          redirectTo: window.location.origin,
+        })
+        if (error) throw error
+        toast.success('Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.')
+        setAuthMode('login')
+      } catch {
+        toast.error('Não foi possível solicitar a redefinição. Confira o e-mail e tente novamente.')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    if (authMode === 'updatePassword') {
+      if (authPassword.length < 8) { toast.error('A nova senha precisa ter pelo menos 8 caracteres.'); return }
+      setLoading(true)
+      try {
+        const { error } = await supabase.auth.updateUser({ password: authPassword })
+        if (error) throw error
+        toast.success('Senha atualizada. Entre novamente com sua nova senha.')
+        await supabase.auth.signOut()
+        setAuthPassword('')
+        setAuthMode('login')
+      } catch {
+        toast.error('Não foi possível atualizar a senha. Solicite um novo link e tente novamente.')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     if (authPassword.length < 6) { toast.error('A senha precisa ter pelo menos 6 caracteres.'); return }
     setLoading(true)
-    const result = authMode === 'login'
-      ? await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword })
-      : await supabase.auth.signUp({ email: authEmail.trim(), password: authPassword, options: { data: { full_name: authName.trim() } } })
-    setLoading(false)
-    if (result.error) { toast.error(result.error.message.includes('Invalid login') ? 'E-mail ou senha incorretos.' : result.error.message); return }
-    if (authMode === 'register' && !result.data.session) toast.success('Conta criada! Confira seu e-mail para confirmar o cadastro.')
-    else toast.success(authMode === 'login' ? 'Bem-vindo de volta!' : 'Conta criada com sucesso!')
+    try {
+      const result = authMode === 'login'
+        ? await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword })
+        : await supabase.auth.signUp({ email: authEmail.trim(), password: authPassword, options: { data: { full_name: authName.trim() } } })
+      if (result.error) {
+        toast.error(result.error.message.includes('Invalid login') ? 'E-mail ou senha incorretos.' : 'Não foi possível autenticar. Confira os dados e tente novamente.')
+        return
+      }
+      if (authMode === 'register' && !result.data.session) toast.success('Conta criada! Confira seu e-mail para confirmar o cadastro.')
+      else toast.success(authMode === 'login' ? 'Bem-vindo de volta!' : 'Conta criada com sucesso!')
+    } catch {
+      toast.error('Não foi possível conectar ao serviço de autenticação. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function googleLogin() {
@@ -213,7 +258,11 @@ function App() {
   }
   function exportCsv() {
     const rows = [['Data', 'Descrição', 'Tipo', 'Categoria', 'Valor'], ...filteredTransactions.map(t => [t.date, t.description, t.type === 'income' ? 'Ganho' : 'Gasto', categories.find(c => c.id === t.category_id)?.name ?? 'Sem categoria', Number(t.amount).toFixed(2).replace('.', ',')])]
-    const csv = '\uFEFF' + rows.map(row => row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n')
+    const csv = '\uFEFF' + rows.map(row => row.map(v => {
+      const value = String(v)
+      const safeValue = /^[\\t\\r\\n ]*[=+\\-@]/.test(value) ? "'" + value : value
+      return '"' + safeValue.replace(/"/g, '""') + '"'
+    }).join(';')).join('\r\n')
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
     const a = document.createElement('a'); a.href = url; a.download = `finflow-lancamentos-${month}.csv`; a.click(); URL.revokeObjectURL(url)
     toast.success('Arquivo CSV exportado!')
@@ -221,7 +270,7 @@ function App() {
 
   if (!authReady) return <div className="boot-screen"><div className="brand-mark"><Wallet size={23} /></div><span>Preparando seu espaço financeiro…</span></div>
   if (!isSupabaseConfigured || !supabase) return <div className="setup-screen"><div className="brand-mark"><Wallet size={26} /></div><p className="eyebrow">FINFLOW · CONFIGURAÇÃO INICIAL</p><h1>Vamos conectar seu financeiro.</h1><p>Para entrar no sistema, configure as credenciais públicas do seu projeto Supabase no arquivo <code>.env.local</code>.</p><div className="setup-code"><code>VITE_SUPABASE_URL=https://seu-projeto.supabase.co</code><code>VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...</code></div><p className="muted">Depois, reinicie o servidor com <code>npm run dev</code>. Nunca use uma chave <code>service_role</code> no frontend.</p></div>
-  if (!user) return <main className="auth-layout"><div className="auth-art"><div className="auth-brand"><div className="brand-mark"><Wallet size={24} /></div><span>finflow<span className="brand-dot">.</span></span></div><div className="auth-message"><p className="eyebrow">SUA VIDA FINANCEIRA, MAIS LEVE</p><h1>Clareza para cuidar melhor do seu dinheiro.</h1><p>Organize seus ganhos, entenda seus gastos e tome decisões com mais confiança.</p><div className="auth-mini-stats"><div><span>Visão completa</span><strong>em um só lugar</strong></div><div><span>Mais controle</span><strong>todo mês</strong></div></div></div><div className="auth-art-footer">Seu dinheiro. Suas escolhas. Seu futuro.</div></div><section className="auth-panel"><div className="auth-form-wrap"><div className="mobile-brand"><div className="brand-mark"><Wallet size={22} /></div><strong>finflow<span className="brand-dot">.</span></strong></div><p className="eyebrow">{authMode === 'login' ? 'BOM TER VOCÊ DE VOLTA' : 'COMECE SUA ORGANIZAÇÃO'}</p><h2>{authMode === 'login' ? 'Acesse sua conta' : 'Crie sua conta'}</h2><p className="muted">{authMode === 'login' ? 'Entre para acompanhar sua vida financeira.' : 'É rápido e você já pode começar.'}</p><form onSubmit={submitAuth} className="auth-form">{authMode === 'register' && <label>Seu nome<div className="input-wrap"><UserRound size={17} /><input value={authName} onChange={e => setAuthName(e.target.value)} placeholder="Como podemos te chamar?" required /></div></label>}<label>E-mail<div className="input-wrap"><Mail size={17} /><input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="voce@email.com" autoComplete="email" required /></div></label><label>Senha<div className="input-wrap"><Lock size={17} /><input type={showPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="Mínimo de 6 caracteres" autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} required minLength={6} /><button type="button" className="icon-button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label><button className="primary-button full" disabled={loading}>{loading ? 'Aguarde…' : authMode === 'login' ? 'Entrar na minha conta' : 'Criar minha conta'} <ArrowUpRight size={17} /></button></form><div className="auth-divider"><span />ou continue com<span /></div><button className="google-button" onClick={googleLogin}><span className="google-g">G</span> Continuar com Google</button><p className="auth-switch">{authMode === 'login' ? 'Ainda não tem uma conta?' : 'Já tem uma conta?'} <button onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? 'Criar conta grátis' : 'Fazer login'}</button></p><p className="privacy-note">Ao continuar, seus dados financeiros ficam vinculados à sua conta e protegidos pelas políticas de acesso.</p></div></section><Toaster theme={theme} richColors position="top-right" /></main>
+  if (!user || authMode === 'recovery' || authMode === 'updatePassword') return <main className="auth-layout"><div className="auth-art"><div className="auth-brand"><div className="brand-mark"><Wallet size={24} /></div><span>finflow<span className="brand-dot">.</span></span></div><div className="auth-message"><p className="eyebrow">SUA VIDA FINANCEIRA, MAIS LEVE</p><h1>Clareza para cuidar melhor do seu dinheiro.</h1><p>Organize seus ganhos, entenda seus gastos e tome decisões com mais confiança.</p><div className="auth-mini-stats"><div><span>Visão completa</span><strong>em um só lugar</strong></div><div><span>Mais controle</span><strong>todo mês</strong></div></div></div><div className="auth-art-footer">Seu dinheiro. Suas escolhas. Seu futuro.</div></div><section className="auth-panel"><div className="auth-form-wrap"><div className="mobile-brand"><div className="brand-mark"><Wallet size={22} /></div><strong>finflow<span className="brand-dot">.</span></strong></div><p className="eyebrow">{authMode === 'login' ? 'BOM TER VOCÊ DE VOLTA' : authMode === 'register' ? 'COMECE SUA ORGANIZAÇÃO' : authMode === 'recovery' ? 'RECUPERE SEU ACESSO' : 'NOVA SENHA'}</p><h2>{authMode === 'login' ? 'Acesse sua conta' : authMode === 'register' ? 'Crie sua conta' : authMode === 'recovery' ? 'Esqueceu sua senha?' : 'Defina uma nova senha'}</h2><p className="muted">{authMode === 'login' ? 'Entre para acompanhar sua vida financeira.' : authMode === 'register' ? 'É rápido e você já pode começar.' : authMode === 'recovery' ? 'Enviaremos um link para o e-mail informado, caso exista uma conta.' : 'Escolha uma senha com pelo menos 8 caracteres.'}</p><form onSubmit={submitAuth} className="auth-form">{authMode === 'register' && <label>Seu nome<div className="input-wrap"><UserRound size={17} /><input value={authName} onChange={e => setAuthName(e.target.value)} placeholder="Como podemos te chamar?" required /></div></label>}{authMode !== 'updatePassword' && <label>E-mail<div className="input-wrap"><Mail size={17} /><input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="voce@email.com" autoComplete="email" required /></div></label>}{authMode !== 'recovery' && <label>{authMode === 'updatePassword' ? 'Nova senha' : 'Senha'}<div className="input-wrap"><Lock size={17} /><input type={showPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder={authMode === 'updatePassword' ? 'Mínimo de 8 caracteres' : 'Mínimo de 6 caracteres'} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} required minLength={authMode === 'updatePassword' ? 8 : 6} /><button type="button" className="icon-button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>}<button className="primary-button full" disabled={loading}>{loading ? 'Aguarde…' : authMode === 'login' ? 'Entrar na minha conta' : authMode === 'register' ? 'Criar minha conta' : authMode === 'recovery' ? 'Enviar link de recuperação' : 'Atualizar senha'} <ArrowUpRight size={17} /></button></form>{(authMode === 'login' || authMode === 'register') && <><div className="auth-divider"><span />ou continue com<span /></div><button className="google-button" onClick={googleLogin}><span className="google-g">G</span> Continuar com Google</button></>}{authMode === 'login' && <p className="auth-switch"><button onClick={() => setAuthMode('recovery')}>Esqueci minha senha</button></p>}{(authMode === 'login' || authMode === 'register') && <p className="auth-switch">{authMode === 'login' ? 'Ainda não tem uma conta?' : 'Já tem uma conta?'} <button onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? 'Criar conta grátis' : 'Fazer login'}</button></p>}{(authMode === 'recovery' || authMode === 'updatePassword') && <p className="auth-switch"><button onClick={() => { setAuthPassword(''); setAuthMode('login') }}>Voltar para login</button></p>}<p className="privacy-note">Ao continuar, seus dados financeiros ficam vinculados à sua conta e protegidos pelas políticas de acesso.</p></div></section><Toaster theme={theme} richColors position="top-right" /></main>
 
   const nav = [{ id: 'dashboard' as Page, label: 'Visão geral', icon: LayoutDashboard }, { id: 'transactions' as Page, label: 'Lançamentos', icon: ArrowLeftRight }, { id: 'categories' as Page, label: 'Categorias', icon: Tags }, { id: 'settings' as Page, label: 'Configurações', icon: Settings }]
   const displayName = String(user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'Usuário')
