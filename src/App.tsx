@@ -260,7 +260,7 @@ function App() {
     const rows = [['Data', 'Descrição', 'Tipo', 'Categoria', 'Valor'], ...filteredTransactions.map(t => [t.date, t.description, t.type === 'income' ? 'Ganho' : 'Gasto', categories.find(c => c.id === t.category_id)?.name ?? 'Sem categoria', Number(t.amount).toFixed(2).replace('.', ',')])]
     const csv = '\uFEFF' + rows.map(row => row.map(v => {
       const value = String(v)
-      const safeValue = /^[\\t\\r\\n ]*[=+\\-@]/.test(value) ? "'" + value : value
+      const safeValue = /^[=+@-]/.test(value.trimStart()) ? "'" + value : value
       return '"' + safeValue.replace(/"/g, '""') + '"'
     }).join(';')).join('\r\n')
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
