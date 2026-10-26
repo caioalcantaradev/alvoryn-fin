@@ -93,11 +93,6 @@ a { color: inherit; }
 .primary-button:hover { background: var(--purple); transform: translateY(-1px); }
 .primary-button.full, .google-button.full { width: 100%; }
 .auth-form .primary-button { min-height: 47px; margin-top: 5px; }
-.google-button { width: 100%; min-height: 46px; background: var(--panel); border-color: var(--border-strong); color: var(--text); }
-.google-button:hover, .secondary-button:hover { border-color: var(--purple); background: var(--panel-hover); }
-.google-g { font-size: 17px; font-weight: 700; color: #4285f4; }
-.auth-divider { display: flex; align-items: center; gap: 12px; margin: 23px 0 16px; color: var(--muted); font-size: 11px; }
-.auth-divider span { flex: 1; height: 1px; background: var(--border); }
 .auth-switch { margin: 23px 0 0; text-align: center; color: var(--muted); font-size: 12px; }
 .auth-switch button { border: 0; background: transparent; color: var(--purple); font-weight: 700; }
 .privacy-note { margin-top: 32px; color: var(--muted-2); text-align: center; font-size: 10px; line-height: 1.7; }
