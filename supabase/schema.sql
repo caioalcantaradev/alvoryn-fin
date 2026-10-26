@@ -22,6 +22,7 @@ create table if not exists public.transactions (
   description text not null check (char_length(trim(description)) between 1 and 120),
   amount numeric(12,2) not null check (amount > 0),
   date date not null default current_date,
+  status text not null default 'paid' check (status in ('paid', 'pending')),
   created_at timestamptz not null default now(),
   constraint transactions_category_owner_fkey
     foreign key (category_id, user_id)
