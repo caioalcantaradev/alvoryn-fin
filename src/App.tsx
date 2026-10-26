@@ -230,7 +230,7 @@ function App() {
     setLoading(true)
     const basePayload = { user_id: user.id, type: form.type, description: form.description.trim(), category_id: form.category_id || null, status: (form.type === 'income' ? 'paid' : 'pending') as PaymentStatus }
     const result = editing
-      ? await supabase.from('transactions').update({ ...basePayload, amount: totalAmount, date: form.date }).eq('id', editing.id).select().single()
+      ? await supabase.from('transactions').update({ ...basePayload, status: editing.status, amount: totalAmount, date: form.date }).eq('id', editing.id).select().single()
       : await supabase.from('transactions').insert(Array.from({ length: installmentCount }, (_, index) => {
           const totalCents = Math.round(totalAmount * 100)
           const baseCents = Math.floor(totalCents / installmentCount)
