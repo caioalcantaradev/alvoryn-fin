@@ -23,7 +23,6 @@ const palette = ['#a4e879', '#8d7cff', '#ffad83', '#6fd6c8', '#f28fbd', '#7db2ff
 const brl = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n || 0)
 const dateBR = (s: string) => { try { return format(parseISO(s), 'dd/MM/yyyy', { locale: ptBR }) } catch { return s } }
 const monthName = (s: string) => { try { return format(parseISO(s + '-01'), 'MMMM yyyy', { locale: ptBR }) } catch { return s } }
-const deltaLabel = (current: number, previous: number) => previous === 0 ? (current === 0 ? 'Sem movimentação anterior' : 'Novo neste período') : `${current >= previous ? '↑' : '↓'} ${Math.abs(((current - previous) / Math.abs(previous)) * 100).toFixed(0)}% vs. mês anterior`
 const todayISO = () => format(new Date(), 'yyyy-MM-dd')
 const amountValue = (s: string) => Number(s.replace(/[^0-9]/g, '')) / 100
 const amountMask = (s: string) => {
@@ -109,17 +108,12 @@ function App() {
   }, [user, categories])
 
   const monthTransactions = useMemo(() => transactions.filter(t => t.date.startsWith(month)), [transactions, month])
-  const previousMonth = useMemo(() => { const d = parseISO(month + '-01'); d.setMonth(d.getMonth() - 1); return format(d, 'yyyy-MM') }, [month])
-  const previousTransactions = useMemo(() => transactions.filter(t => t.date.startsWith(previousMonth)), [transactions, previousMonth])
   const expense = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const paidIncome = monthTransactions.filter(t => t.type === 'income' && t.status === 'paid').reduce((s, t) => s + Number(t.amount), 0)
   const paidExpense = monthTransactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((s, t) => s + Number(t.amount), 0)
   const balance = paidIncome - paidExpense
   const forecastBalance = paidIncome - expense
   const pendingExpense = expense - paidExpense
-  const previousIncome = previousTransactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
-  const previousExpense = previousTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
-  const previousBalance = previousIncome - previousExpense
   const filteredTransactions = useMemo(() => transactions.filter(t =>
     t.date.startsWith(month) &&
     (typeFilter === 'all' || t.type === typeFilter) &&
