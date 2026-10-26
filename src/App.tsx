@@ -111,7 +111,6 @@ function App() {
   const monthTransactions = useMemo(() => transactions.filter(t => t.date.startsWith(month)), [transactions, month])
   const previousMonth = useMemo(() => { const d = parseISO(month + '-01'); d.setMonth(d.getMonth() - 1); return format(d, 'yyyy-MM') }, [month])
   const previousTransactions = useMemo(() => transactions.filter(t => t.date.startsWith(previousMonth)), [transactions, previousMonth])
-  const income = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
   const expense = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const paidIncome = monthTransactions.filter(t => t.type === 'income' && t.status === 'paid').reduce((s, t) => s + Number(t.amount), 0)
   const paidExpense = monthTransactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((s, t) => s + Number(t.amount), 0)
