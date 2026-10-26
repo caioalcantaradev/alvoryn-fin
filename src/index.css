@@ -194,6 +194,9 @@ a { color: inherit; }
 .date-cell { color: var(--muted); }
 .amount-income { color: var(--green); font-weight: 600; }
 .amount-expense { color: var(--text); font-weight: 600; }
+.payment-status { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 27px; padding: 5px 8px; border: 1px solid transparent; border-radius: 7px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.payment-status.paid { color: var(--green); background: var(--green-soft); border-color: color-mix(in srgb,var(--green) 20%,transparent); }
+.payment-status.pending { color: var(--red); background: var(--red-soft); border-color: color-mix(in srgb,var(--red) 20%,transparent); }
 .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; opacity: .55; }
 .transactions-table tr:hover .row-actions { opacity: 1; }
 .empty-state { min-height: 160px; padding: 26px 15px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; }
