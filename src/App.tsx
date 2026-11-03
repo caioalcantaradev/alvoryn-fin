@@ -111,8 +111,9 @@ function App() {
   const expense = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const paidIncome = monthTransactions.filter(t => t.type === 'income' && t.status === 'paid').reduce((s, t) => s + Number(t.amount), 0)
   const paidExpense = monthTransactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((s, t) => s + Number(t.amount), 0)
+  const balanceThroughDate = format(endOfMonth(parseISO(`${month}-01`)), 'yyyy-MM-dd')
   const balance = transactions
-    .filter(t => t.date <= `${month}-31` && t.status === 'paid')
+    .filter(t => t.date <= balanceThroughDate && t.status === 'paid')
     .reduce((total, t) => total + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
   const forecastBalance = paidIncome - expense
   const pendingExpense = expense - paidExpense
